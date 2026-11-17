@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent Mon</title><style>
+body{font:14px system-ui,sans-serif;margin:16px;color:#183153}h2{margin:0 0 8px}
+table{border-collapse:collapse;width:100%}th,td{padding:8px;text-align:left;border-bottom:1px solid #ddd}
+small{color:#667085}
+</style></head><body><h2>Agent Mon</h2><small>Prototype gadget UI. Requires a Finesse-supported authenticated proxy integration.</small>
+<p id="status" role="status">Awaiting telemetry</p>
+<table><thead><tr><th>Time</th><th>Target</th><th>Reachable</th><th>Latency</th></tr></thead><tbody id="samples"></tbody></table>
+<script>
+function render(samples) {
+ const body=document.getElementById('samples');body.replaceChildren();
+ for(const s of samples.slice(-20).reverse()){
+  const tr=document.createElement('tr');
+  for(const value of [new Date(s.timestamp).toLocaleTimeString(),s.target,s.reachable?'Yes':'No',s.latencyMs==null?'—':Math.round(s.latencyMs)+' ms']){
+   const td=document.createElement('td');td.textContent=value;tr.appendChild(td);
+  }body.appendChild(tr);
+ }
+ const last=samples.at(-1);document.getElementById('status').textContent=last?(last.reachable?'Endpoint reachable':'Endpoint unavailable'):'No samples';
+}
+window.AgentMon=Object.freeze({render});
+</script></body></html>

@@ -36,3 +36,11 @@ The API binds to localhost by default. Configure TLS, authorization, endpoint re
 2. Add mutual TLS or device-bound authentication and scoped read access.
 3. Persist telemetry, implement retention, incident correlation and audit logging.
 4. Add unit/integration tests and deployment instructions.
+
+## Support
+
+When filing an issue, include the affected component, runtime version, and steps to reproduce. Remove API keys, customer identifiers, and internal hostnames from examples.
+
+## License
+
+Project code is available under the [MIT License](LICENSE).

@@ -2,6 +2,8 @@
 
 Agent Mon checks whether a contact-center agent's computer can reach the systems it depends on, such as Cisco Finesse, and how quickly. A small program on the agent's PC (the **collector**) tests each system every 5 seconds and sends the results to a **server**. A web page (the **gadget**) shows the results to the agent.
 
+![The agent's dashboard with made-up results for Finesse and Nest](docs/screenshot.png)
+
 > **Status: lab prototype.** It is not a Cisco-certified integration and has not been tested with a live Finesse server. Use it in a test lab, not with real agents yet.
 
 ## What it measures, and what it doesn't

@@ -2,7 +2,8 @@
 // Data must be supplied by a Finesse-supported, authenticated integration.
 // Never embed the collector ingestion key or allow the agent to choose arbitrary probe URLs.
 const MAX_AGE_MS=15000;
-const knownTargets=Object.freeze(['Nest','Finesse']);
+// Cards for Nest and Finesse until data arrives, then one card per target the collector names.
+const defaultTargets=Object.freeze(['Nest','Finesse']);
 let latestSamples=[];
 function element(tag, cls, text){
  const el=document.createElement(tag);
@@ -23,7 +24,8 @@ function draw(){
  container.replaceChildren();
  const now=Date.now();
  let healthy=0, problems=0;
- for(const name of knownTargets){
+ const names=latestSamples.length?[...new Set(latestSamples.map(s=>s.target))]:defaultTargets;
+ for(const name of names){
   const sample=latestSamples.filter(s=>s.target===name).at(-1);
   const fresh=sample&&Math.abs(now-Date.parse(sample.timestamp))<=MAX_AGE_MS;
   const status=!fresh?'No recent data':!sample.reachable?'Unreachable':sample.latencyMs>250?'High latency':'Connected';
@@ -34,8 +36,8 @@ function draw(){
   container.append(card);
  }
  const overall=document.getElementById('overall');
- overall.textContent=problems?'Connection issue':healthy===knownTargets.length?'Monitoring live':'Waiting for telemetry';
- overall.className=problems?'bad':healthy===knownTargets.length?'good':'muted';
+ overall.textContent=problems?'Connection issue':healthy===names.length?'Monitoring live':'Waiting for telemetry';
+ overall.className=problems?'bad':healthy===names.length?'good':'muted';
  const table=document.getElementById('samples');table.replaceChildren();
  for(const s of latestSamples.slice(-20).reverse()){
   const row=element('tr');

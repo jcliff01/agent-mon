@@ -2,6 +2,7 @@ name: Build
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -22,5 +23,31 @@ jobs:
         run: dotnet build server/AgentMon.Server -c Release
       - name: Build the collector
         run: dotnet build collector/AgentMon.Collector -c Release
-      - name: Check the gadget script
+      - name: Run the tests
+        run: dotnet test tests/AgentMon.Tests -c Release
+      - name: Check the dashboard script
         run: node --check gadget/monitor.js
+
+  package:
+    # Builds one release download the way the Release workflow does, and checks the dashboard is included.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build a single-file download
+        run: |
+          for app in server/AgentMon.Server collector/AgentMon.Collector; do
+            dotnet publish "$app" -c Release -r linux-x64 --self-contained true \
+              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o out
+          done
+          ls -la out out/dashboard
+          test -x out/AgentMon.Server && test -x out/AgentMon.Collector && test -f out/dashboard/index.html
+      - name: Start it and check the health endpoint and dashboard
+        run: |
+          export AGENTMON_API_KEY=$(openssl rand -hex 32)
+          ./out/AgentMon.Server &
+          sleep 5
+          curl -fsS http://127.0.0.1:5088/healthz
+          curl -fsS http://127.0.0.1:5088/dashboard/ | grep -q "Agent Mon"

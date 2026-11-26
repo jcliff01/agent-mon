@@ -1,8 +1,11 @@
 **/bin/
 **/obj/
+out/
+dist/
 .vs/
 .idea/
 *.user
 .env
 *.pfx
 *.key
+TestResults/

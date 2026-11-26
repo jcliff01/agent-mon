@@ -1,1 +1,28 @@
-body{font:14px system-ui,sans-serif;margin:16px;color:#183153;background:#fff}header{display:flex;align-items:center;justify-content:space-between;gap:12px}h2{margin:0 0 4px}h3{font-size:14px}small,.note,#freshness{color:#667085}.targets{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px;margin:16px 0}.target{padding:12px;border:1px solid #d0d5dd;border-radius:8px}.target h3{margin:0 0 8px}.latency{font-size:24px;font-weight:700}.good{color:#16803c}.warn{color:#ad6800}.bad{color:#b42318}.muted{color:#667085}table{width:100%;border-collapse:collapse}td,th{padding:8px;text-align:left;border-bottom:1px solid #e5e7eb}.note{font-size:12px}
+body { font: 14px system-ui, sans-serif; margin: 16px; color: #183153; background: #fff; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+h2 { margin: 0 0 4px; }
+h3 { font-size: 14px; }
+small, .note, #freshness { color: #667085; }
+
+.connect { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: 16px 0 0; padding: 12px; border: 1px solid #d0d5dd; border-radius: 8px; background: #f9fafb; }
+.connect[hidden] { display: none; }
+.connect label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; }
+.connect input, .connect select { font: inherit; padding: 6px 8px; border: 1px solid #d0d5dd; border-radius: 6px; min-width: 200px; }
+.connect button { font: inherit; padding: 7px 14px; border-radius: 6px; border: 1px solid #183153; background: #183153; color: #fff; cursor: pointer; }
+.connect button[type=button] { background: #fff; color: #183153; }
+.connect button[hidden] { display: none; }
+
+.targets { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 10px; margin: 16px 0; }
+.target { padding: 12px; border: 1px solid #d0d5dd; border-radius: 8px; }
+.target h3 { margin: 0 0 8px; }
+.target p { margin: 4px 0 0; }
+.latency { font-size: 24px; font-weight: 700; }
+.good { color: #16803c; }
+.warn { color: #ad6800; }
+.bad { color: #b42318; }
+.muted { color: #667085; }
+
+table { width: 100%; border-collapse: collapse; }
+td, th { padding: 8px; border-bottom: 1px solid #eaecf0; text-align: left; }
+th { color: #475467; font-weight: 600; }
+.note { font-size: 12px; margin-top: 16px; }

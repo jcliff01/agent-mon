@@ -11,7 +11,12 @@ if (keys is null)
     return 2;
 }
 
-var builder = WebApplication.CreateBuilder(args);
+// Read appsettings.json from the program's own folder, wherever it's started from.
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory
+});
 builder.WebHost.UseUrls(Environment.GetEnvironmentVariable("AGENTMON_URLS") ?? "http://127.0.0.1:5088");
 // Samples are tiny; refuse anything large.
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 16 * 1024);

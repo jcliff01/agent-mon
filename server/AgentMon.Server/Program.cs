@@ -1,42 +1,86 @@
-using System.Collections.Concurrent;
-using System.Security.Cryptography;
-using System.Text;
+using AgentMon.Server;
+using Microsoft.Extensions.FileProviders;
 
-var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseUrls("http://127.0.0.1:5088");
-var app = builder.Build();
-var key = Environment.GetEnvironmentVariable("AGENTMON_API_KEY");
-if (string.IsNullOrEmpty(key) || key.Length < 32)
-    throw new InvalidOperationException("Set AGENTMON_API_KEY to a random secret of at least 32 characters.");
-var records = new ConcurrentDictionary<string, ConcurrentQueue<ProbeSample>>();
-
-bool Auth(HttpRequest req)
+var keys = Keys.Load(
+    Environment.GetEnvironmentVariable("AGENTMON_API_KEY"),
+    Environment.GetEnvironmentVariable("AGENTMON_READ_KEY"),
+    out string? problem);
+if (keys is null)
 {
-    var supplied = req.Headers["X-AgentMon-Key"].ToString();
-    if (string.IsNullOrEmpty(supplied)) return false;
-    var actual = SHA256.HashData(Encoding.UTF8.GetBytes(supplied));
-    var expected = SHA256.HashData(Encoding.UTF8.GetBytes(key));
-    return CryptographicOperations.FixedTimeEquals(actual, expected);
+    Console.Error.WriteLine("Agent Mon server can't start: " + problem);
+    return 2;
 }
 
-app.MapPost("/api/v1/samples", (HttpRequest req, ProbeSample sample) =>
+// Read appsettings.json from the program's own folder, wherever it's started from.
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
-    if (!Auth(req)) return Results.Unauthorized();
-    if (string.IsNullOrWhiteSpace(sample.AgentId) || sample.AgentId.Length > 128 ||
-        string.IsNullOrWhiteSpace(sample.Target) || sample.Target.Length > 253 ||
-        sample.LatencyMs is < 0 or > 120000 ||
-        sample.Timestamp < DateTimeOffset.UtcNow.AddDays(-1) ||
-        sample.Timestamp > DateTimeOffset.UtcNow.AddMinutes(5)) return Results.BadRequest();
-    var queue = records.GetOrAdd(sample.AgentId, _ => new ConcurrentQueue<ProbeSample>());
-    queue.Enqueue(sample);
-    while (queue.Count > 120 && queue.TryDequeue(out _)) {}
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory
+});
+builder.WebHost.UseUrls(Environment.GetEnvironmentVariable("AGENTMON_URLS") ?? "http://127.0.0.1:5088");
+// Samples are tiny; refuse anything large.
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 16 * 1024);
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton(services => new SampleStore(services.GetRequiredService<TimeProvider>()));
+var app = builder.Build();
+
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers.XContentTypeOptions = "nosniff";
+    headers["Referrer-Policy"] = "no-referrer";
+    headers.ContentSecurityPolicy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:";
+    headers.CacheControl = "no-store";
+    await next();
+});
+
+string? Supplied(HttpRequest request) => request.Headers[Keys.Header].ToString();
+
+app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
+
+app.MapPost("/api/v1/samples", (HttpRequest request, ProbeSample? sample, SampleStore store, ILogger<Program> log) =>
+{
+    if (!keys.CanWrite(Supplied(request)))
+        return Results.Unauthorized();
+    if (store.Validate(sample) is { } reason)
+        return Results.BadRequest(new { error = reason });
+    if (!store.Add(sample!))
+    {
+        log.LogWarning("Refused a sample from a new agent: the limit of {Max} agents is reached.", store.MaxAgents);
+        return Results.StatusCode(StatusCodes.Status507InsufficientStorage);
+    }
     return Results.Accepted();
 });
-app.MapGet("/api/v1/agents/{agentId}/samples", (HttpRequest req, string agentId) =>
-{
-    if (!Auth(req)) return Results.Unauthorized();
-    return Results.Ok(records.TryGetValue(agentId, out var queue) ? queue.ToArray() : Array.Empty<ProbeSample>());
-});
-app.Run();
 
-public sealed record ProbeSample(string AgentId, string Target, DateTimeOffset Timestamp, bool Reachable, double? LatencyMs, string? Error);
+app.MapGet("/api/v1/agents", (HttpRequest request, SampleStore store) =>
+    keys.CanRead(Supplied(request)) ? Results.Ok(store.Agents()) : Results.Unauthorized());
+
+app.MapGet("/api/v1/agents/{agentId}/samples", (HttpRequest request, string agentId, SampleStore store) =>
+{
+    if (!keys.CanRead(Supplied(request)))
+        return Results.Unauthorized();
+    if (!SampleStore.ValidId(agentId))
+        return Results.BadRequest(new { error = "invalid agent ID" });
+    return Results.Ok(store.Get(agentId));
+});
+
+// The dashboard: the same page as the Finesse gadget, which asks for the read key and polls.
+string dashboard = Environment.GetEnvironmentVariable("AGENTMON_DASHBOARD_DIR") ??
+    Path.Combine(AppContext.BaseDirectory, "dashboard");
+if (Directory.Exists(dashboard))
+{
+    app.UseFileServer(new FileServerOptions
+    {
+        FileProvider = new PhysicalFileProvider(Path.GetFullPath(dashboard)),
+        RequestPath = "/dashboard"
+    });
+    app.MapGet("/", () => Results.Redirect("/dashboard/"));
+}
+
+app.Logger.LogInformation("Agent Mon server {Version} started. Read-only key {ReadKey}.",
+    typeof(Program).Assembly.GetName().Version?.ToString(3),
+    string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AGENTMON_READ_KEY")) ? "not set" : "set");
+app.Run();
+return 0;
+
+public partial class Program;
